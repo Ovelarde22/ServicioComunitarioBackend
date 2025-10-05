@@ -1,0 +1,13 @@
+# Directorio de dependencias de Node
+/node_modules
+
+# Archivos de log
+npm-debug.log
+.eslintcache
+
+# Variables de entorno
+.env
+
+# Directorios de compilación/transpilación (si se llega a usar)
+/dist
+/build
