@@ -1,0 +1,234 @@
+-- Tabla principal de usuarios del sistema
+CREATE TABLE cuenta_usuario (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('estudiante', 'profesor', 'autoridad')),
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON COLUMN cuenta_usuario.username IS 'Login principal (ej: cedula, "Jperez")';
+COMMENT ON COLUMN cuenta_usuario.role IS 'estudiante, profesor, autoridad';
+
+-- Tabla para autoridades educativas
+CREATE TABLE autoridad (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    apel VARCHAR(100) NOT NULL,
+    id_cu_aut INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (id_cu_aut) REFERENCES cuenta_usuario(id)
+);
+
+-- Tabla para estudiantes
+CREATE TABLE estudiante (
+    id SERIAL PRIMARY KEY,
+    id_cu_est INTEGER NOT NULL UNIQUE,
+    password_random VARCHAR NOT NULL,
+    FOREIGN KEY (id_cu_est) REFERENCES cuenta_usuario(id)
+);
+
+-- Tabla para profesores
+CREATE TABLE profesor (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    apel VARCHAR(100) NOT NULL,
+    id_aut_prf INTEGER NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT true,
+    id_cu_prf INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (id_aut_prf) REFERENCES autoridad(id),
+    FOREIGN KEY (id_cu_prf) REFERENCES cuenta_usuario(id)
+);
+
+-- Tabla de materias/académicas
+CREATE TABLE materia (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL
+);
+
+-- Tabla de secciones/grupos
+CREATE TABLE seccion (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(11) NOT NULL,
+    capacidad NUMERIC NOT NULL DEFAULT 30
+);
+
+-- Tabla de relación muchos a muchos: Materia - Estudiante
+CREATE TABLE materia_estudiante (
+    id_me_materia INTEGER NOT NULL,
+    id_me_estudiante INTEGER NOT NULL,
+    PRIMARY KEY (id_me_materia, id_me_estudiante),
+    FOREIGN KEY (id_me_materia) REFERENCES materia(id),
+    FOREIGN KEY (id_me_estudiante) REFERENCES estudiante(id)
+);
+
+-- Tabla de relación muchos a muchos: Profesor - Materia
+CREATE TABLE profesor_materia (
+    id_pm_materia INTEGER NOT NULL,
+    id_pm_prof INTEGER NOT NULL,
+    PRIMARY KEY (id_pm_materia, id_pm_prof),
+    FOREIGN KEY (id_pm_materia) REFERENCES materia(id),
+    FOREIGN KEY (id_pm_prof) REFERENCES profesor(id)
+);
+
+-- Tabla de relación muchos a muchos: Sección - Estudiante
+CREATE TABLE seccion_estudiante (
+    id_se_est INTEGER NOT NULL,
+    id_se_sec INTEGER NOT NULL,
+    PRIMARY KEY (id_se_est, id_se_sec),
+    FOREIGN KEY (id_se_est) REFERENCES estudiante(id),
+    FOREIGN KEY (id_se_sec) REFERENCES seccion(id)
+);
+
+-- Tabla de relación muchos a muchos: Sección - Profesor
+CREATE TABLE seccion_profesor (
+    id_sp_prof INTEGER NOT NULL,
+    id_sp_sec INTEGER NOT NULL,
+    PRIMARY KEY (id_sp_prof, id_sp_sec),
+    FOREIGN KEY (id_sp_prof) REFERENCES profesor(id),
+    FOREIGN KEY (id_sp_sec) REFERENCES seccion(id)
+);
+
+-- Tabla histórica de lapsos/clases
+CREATE TABLE historico_lapso_clase (
+    id SERIAL PRIMARY KEY,
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE,
+    nombre_lapso VARCHAR(50) NOT NULL,
+    id_hlc_est INTEGER NOT NULL,
+    id_hlc_prof INTEGER NOT NULL,
+    UNIQUE (fecha_inicio, id_hlc_est, id_hlc_prof),
+    FOREIGN KEY (id_hlc_est) REFERENCES estudiante(id),
+    FOREIGN KEY (id_hlc_prof) REFERENCES profesor(id)
+);
+
+-- Tabla de encuestas
+CREATE TABLE encuestas (
+    id SERIAL PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    tipo CHAR(1) NOT NULL DEFAULT 'p' CHECK (tipo IN ('e', 'p')),
+    descripcion TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON COLUMN encuestas.titulo IS 'Ej: Evaluación Docente 2025-Q1';
+COMMENT ON COLUMN encuestas.tipo IS 'e = Estudiante y p = Profesor';
+
+-- Tabla de categorías de preguntas
+CREATE TABLE categoria_pregunta (
+    id SERIAL PRIMARY KEY,
+    id_encuesta_cp INTEGER NOT NULL,
+    titulo VARCHAR(255) NOT NULL,
+    descripcion TEXT,
+    orden INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (id_encuesta_cp) REFERENCES encuestas(id)
+);
+
+COMMENT ON COLUMN categoria_pregunta.orden IS 'Para ordenar las categorías (0, 1, 2...)';
+
+-- Tabla de preguntas
+CREATE TABLE pregunta (
+    id SERIAL PRIMARY KEY,
+    id_encuesta_preg INTEGER NOT NULL,
+    id_categoria_preg INTEGER,
+    texto_pregunta TEXT NOT NULL,
+    tipo_pregunta VARCHAR(50) NOT NULL CHECK (tipo_pregunta IN ('opcion_multiple', 'texto_abierto', 'escala_1_5')),
+    es_obligatoria BOOLEAN DEFAULT false,
+    orden INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (id_encuesta_preg) REFERENCES encuestas(id),
+    FOREIGN KEY (id_categoria_preg) REFERENCES categoria_pregunta(id)
+);
+
+COMMENT ON COLUMN pregunta.tipo_pregunta IS 'Ej: opcion_multiple, texto_abierto, escala_1_5';
+COMMENT ON COLUMN pregunta.orden IS 'Para ordenar las preguntas dentro de las encuestas';
+
+-- Tabla de opciones para preguntas de opción múltiple
+CREATE TABLE opcion (
+    id SERIAL PRIMARY KEY,
+    id_pregunta INTEGER NOT NULL,
+    texto_opcion VARCHAR(255) NOT NULL,
+    valor_numerico NUMERIC(5,2) NOT NULL DEFAULT 0,
+    FOREIGN KEY (id_pregunta) REFERENCES pregunta(id)
+);
+
+-- Tabla de períodos de evaluación
+CREATE TABLE periodo_evaluacion (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) UNIQUE NOT NULL,
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT false,
+    CHECK (fecha_inicio <= fecha_fin)
+);
+
+COMMENT ON COLUMN periodo_evaluacion.nombre IS 'Ej: Año Escolar 2025 - Lapso 1';
+COMMENT ON COLUMN periodo_evaluacion.activo IS 'activo = true significa que es el período donde se pueden generar tokens';
+
+-- Tabla de envíos de encuestas
+CREATE TABLE envio_encuesta (
+    id SERIAL PRIMARY KEY,
+    id_env_enc_encuesta INTEGER NOT NULL,
+    id_env_enc_evaluado INTEGER NOT NULL,
+    id_env_enc_materia INTEGER,
+    id_env_enc_pe INTEGER NOT NULL,
+    fecha_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_env_enc_encuesta) REFERENCES encuestas(id),
+    FOREIGN KEY (id_env_enc_evaluado) REFERENCES cuenta_usuario(id),
+    FOREIGN KEY (id_env_enc_materia) REFERENCES materia(id),
+    FOREIGN KEY (id_env_enc_pe) REFERENCES periodo_evaluacion(id)
+);
+
+COMMENT ON COLUMN envio_encuesta.id_env_enc_materia IS 'Contexto de la materia evaluada';
+
+-- Tabla de tokens para acceso a encuestas
+CREATE TABLE token_encuesta (
+    id SERIAL PRIMARY KEY,
+    token_valor VARCHAR(50) UNIQUE NOT NULL,
+    id_encuesta_te INTEGER NOT NULL,
+    id_evaluado_prf INTEGER NOT NULL,
+    id_materia_te INTEGER NOT NULL,
+    id_pe_te INTEGER NOT NULL,
+    fue_usado BOOLEAN NOT NULL DEFAULT false,
+    id_envio_resultante INTEGER,
+    FOREIGN KEY (id_encuesta_te) REFERENCES encuestas(id),
+    FOREIGN KEY (id_evaluado_prf) REFERENCES cuenta_usuario(id),
+    FOREIGN KEY (id_materia_te) REFERENCES materia(id),
+    FOREIGN KEY (id_pe_te) REFERENCES periodo_evaluacion(id),
+    FOREIGN KEY (id_envio_resultante) REFERENCES envio_encuesta(id)
+);
+
+COMMENT ON COLUMN token_encuesta.token_valor IS 'La contraseña alfanumérica de un solo uso';
+COMMENT ON COLUMN token_encuesta.id_evaluado_prf IS 'El profesor que será evaluado';
+
+-- Tabla de respuestas a las encuestas
+CREATE TABLE respuesta (
+    id SERIAL PRIMARY KEY,
+    id_envio_resp INTEGER NOT NULL,
+    id_pregunta_resp INTEGER NOT NULL,
+    id_opcion_seleccionada_resp INTEGER,
+    respuesta_abierta TEXT,
+    UNIQUE (id_envio_resp, id_pregunta_resp),
+    FOREIGN KEY (id_envio_resp) REFERENCES envio_encuesta(id),
+    FOREIGN KEY (id_pregunta_resp) REFERENCES pregunta(id),
+    FOREIGN KEY (id_opcion_seleccionada_resp) REFERENCES opcion(id),
+    CHECK (
+        (id_opcion_seleccionada_resp IS NOT NULL AND respuesta_abierta IS NULL) OR
+        (id_opcion_seleccionada_resp IS NULL AND respuesta_abierta IS NOT NULL) OR
+        (id_opcion_seleccionada_resp IS NULL AND respuesta_abierta IS NULL)
+    )
+);
+
+COMMENT ON CONSTRAINT respuesta_id_envio_resp_id_pregunta_resp_key ON respuesta IS 'Evita respuestas duplicadas para la misma pregunta en el mismo envío';
+
+-- Índices adicionales para mejorar el rendimiento
+CREATE INDEX idx_cuenta_usuario_role ON cuenta_usuario(role);
+CREATE INDEX idx_encuestas_tipo ON encuestas(tipo);
+CREATE INDEX idx_pregunta_encuesta ON pregunta(id_encuesta_preg);
+CREATE INDEX idx_pregunta_categoria ON pregunta(id_categoria_preg);
+CREATE INDEX idx_opcion_pregunta ON opcion(id_pregunta);
+CREATE INDEX idx_token_encuesta_usado ON token_encuesta(fue_usado);
+CREATE INDEX idx_token_encuesta_valor ON token_encuesta(token_valor);
+CREATE INDEX idx_periodo_evaluacion_activo ON periodo_evaluacion(activo);
+CREATE INDEX idx_envio_encuesta_fecha ON envio_encuesta(fecha_envio);
+CREATE INDEX idx_respuesta_envio ON respuesta(id_envio_resp);
+CREATE INDEX idx_respuesta_pregunta ON respuesta(id_pregunta_resp);
