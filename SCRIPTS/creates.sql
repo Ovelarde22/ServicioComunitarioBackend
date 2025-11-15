@@ -1,92 +1,108 @@
 -- Tabla principal de usuarios del sistema
-CREATE TABLE cuenta_usuario (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
+CREATE TABLE CUENTAS_USUARIO (
+    cu_id SERIAL PRIMARY KEY,
+    username VARCHAR(30) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('estudiante', 'profesor', 'autoridad')),
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    rol VARCHAR(1) NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT check_rol CHECK(rol in ('e','p','a')), --estudiante, PROFESORES, autoridad
+    CONSTRAINT check_username CHECK(char_length(username) between 2 and 30)
 );
 
-COMMENT ON COLUMN cuenta_usuario.username IS 'Login principal (ej: cedula, "Jperez")';
-COMMENT ON COLUMN cuenta_usuario.role IS 'estudiante, profesor, autoridad';
-
--- Tabla para autoridades educativas
-CREATE TABLE autoridad (
+-- Tabla para AUTORIDADES educativas
+CREATE TABLE AUTORIDADES (
     id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    apel VARCHAR(100) NOT NULL,
+    nombre_aut VARCHAR(50) NOT NULL,
+    apellido_aut VARCHAR(50) NOT NULL,
     id_cu_aut INTEGER NOT NULL UNIQUE,
-    FOREIGN KEY (id_cu_aut) REFERENCES cuenta_usuario(id)
+    
+    CONSTRAINT fk_cuenta_usuario_autoridad FOREIGN KEY (id_cu_aut) REFERENCES CUENTAS_USUARIO(cu_id),
+    CONSTRAINT check_nombre_autoridad CHECK(char_length(nombre_aut) between 2 and 50),
+    CONSTRAINT check_apellido_autoridad CHECK(char_length(apellido_aut) between 2 and 50)
 );
 
--- Tabla para estudiantes
-CREATE TABLE estudiante (
-    id SERIAL PRIMARY KEY,
+-- Tabla para ESTUDIANTES
+CREATE TABLE ESTUDIANTES (
+    est_id SERIAL PRIMARY KEY,
     id_cu_est INTEGER NOT NULL UNIQUE,
-    password_random VARCHAR NOT NULL,
-    FOREIGN KEY (id_cu_est) REFERENCES cuenta_usuario(id)
+    password_random VARCHAR NOT NULL, --Revisar si borrar esta línea
+    
+    CONSTRAINT fk_cuenta_usuario_estudiante FOREIGN KEY (id_cu_est) REFERENCES CUENTAS_USUARIO(id)
 );
 
--- Tabla para profesores
-CREATE TABLE profesor (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    apel VARCHAR(100) NOT NULL,
+-- Tabla para PROFESORES
+CREATE TABLE PROFESORES (
+    prf_id SERIAL PRIMARY KEY,
+    nombre_prf VARCHAR(50) NOT NULL,
+    apellido_prf VARCHAR(500) NOT NULL,
     id_aut_prf INTEGER NOT NULL,
     activo BOOLEAN NOT NULL DEFAULT true,
     id_cu_prf INTEGER NOT NULL UNIQUE,
-    FOREIGN KEY (id_aut_prf) REFERENCES autoridad(id),
-    FOREIGN KEY (id_cu_prf) REFERENCES cuenta_usuario(id)
+    
+    CONSTRAINT fk_autoridad_profesor FOREIGN KEY (id_aut_prf) REFERENCES AUTORIDADES(id),
+    CONSTRAINT fk_cuenta_usuario_profesor FOREIGN KEY (id_cu_prf) REFERENCES CUENTAS_USUARIO(id),
+    CONSTRAINT check_nombre_profesor CHECK(char_length(nombre_prf) between 2 and 50),
+    CONSTRAINT check_apellido_profesor CHECK(char_length(apellido_prf) between 2 and 50)
 );
 
--- Tabla de materias/académicas
-CREATE TABLE materia (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL
+-- Tabla de MATERIAS/académicas
+CREATE TABLE MATERIAS (
+    mat_id SERIAL PRIMARY KEY,
+    nombre_mat VARCHAR(100) NOT NULL,
+
+    CONSTRAINT check_nombre_materia CHECK(char_length(nombre_mat) between 10 and 100)
 );
 
--- Tabla de secciones/grupos
-CREATE TABLE seccion (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(11) NOT NULL,
-    capacidad NUMERIC NOT NULL DEFAULT 30
+-- Tabla de SECCIONES/grupos
+CREATE TABLE SECCIONES (
+    sec_id SERIAL PRIMARY KEY,
+    nombre_sec VARCHAR(20) NOT NULL,
+    capacidad NUMERIC NOT NULL DEFAULT 25,
+
+    CONSTRAINT check_nombre_seccion CHECK(char_length(nombre_sec) between 2 and 20),
+    CONSTRAINT check_capacidad_seccion CHECK(capacidad between 15 and 30)
 );
 
--- Tabla de relación muchos a muchos: Materia - Estudiante
-CREATE TABLE materia_estudiante (
-    id_me_materia INTEGER NOT NULL,
-    id_me_estudiante INTEGER NOT NULL,
-    PRIMARY KEY (id_me_materia, id_me_estudiante),
-    FOREIGN KEY (id_me_materia) REFERENCES materia(id),
-    FOREIGN KEY (id_me_estudiante) REFERENCES estudiante(id)
+-- Tabla de relación muchos a muchos: MATERIAS - ESTUDIANTES
+CREATE TABLE MATERIAS_ESTUDIANTES (
+    id_me_mat INTEGER NOT NULL,
+    id_me_est INTEGER NOT NULL,
+    
+    CONSTRAINT PK_MATERIAS_ESTUDIANTES PRIMARY KEY (id_me_mat, id_me_est),
+    CONSTRAINT fk_me_materias FOREIGN KEY (id_me_mat) REFERENCES MATERIAS(mat_id),
+    CONSTRAINT fk_me_estudiantes FOREIGN KEY (id_me_est) REFERENCES ESTUDIANTES(est_id)
 );
 
--- Tabla de relación muchos a muchos: Profesor - Materia
-CREATE TABLE profesor_materia (
-    id_pm_materia INTEGER NOT NULL,
+-- Tabla de relación muchos a muchos: PROFESORES - MATERIAS
+CREATE TABLE PROFESORES_MATERIAS (
+    id_pm_mat INTEGER NOT NULL,
     id_pm_prof INTEGER NOT NULL,
-    PRIMARY KEY (id_pm_materia, id_pm_prof),
-    FOREIGN KEY (id_pm_materia) REFERENCES materia(id),
-    FOREIGN KEY (id_pm_prof) REFERENCES profesor(id)
+    
+    CONSTRAINT PK_PROFESORES_MATERIAS PRIMARY KEY (id_pm_mat, id_pm_prof),
+    CONSTRAINT fk_pm_materias FOREIGN KEY (id_pm_mat) REFERENCES MATERIAS(mat_id),
+    CONSTRAINT fk_pm_profesores FOREIGN KEY (id_pm_prof) REFERENCES PROFESORES(prf_id)
 );
 
--- Tabla de relación muchos a muchos: Sección - Estudiante
-CREATE TABLE seccion_estudiante (
+-- Tabla de relación muchos a muchos: Sección - ESTUDIANTES
+CREATE TABLE SECCIONES_ESTUDIANTES (
     id_se_est INTEGER NOT NULL,
     id_se_sec INTEGER NOT NULL,
-    PRIMARY KEY (id_se_est, id_se_sec),
-    FOREIGN KEY (id_se_est) REFERENCES estudiante(id),
-    FOREIGN KEY (id_se_sec) REFERENCES seccion(id)
+    
+    CONSTRAINT PK_SECCIONES_ESTUDIANTES PRIMARY KEY (id_se_est, id_se_sec),
+    CONSTRAINT fk_se_estudiantes FOREIGN KEY (id_se_est) REFERENCES ESTUDIANTES(est_id),
+    CONSTRAINT fk_se_secciones FOREIGN KEY (id_se_sec) REFERENCES SECCIONES(sec_id)
 );
 
--- Tabla de relación muchos a muchos: Sección - Profesor
-CREATE TABLE seccion_profesor (
+-- Tabla de relación muchos a muchos: Sección - PROFESORES
+CREATE TABLE SECCIONES_PROFESORES (
     id_sp_prof INTEGER NOT NULL,
     id_sp_sec INTEGER NOT NULL,
-    PRIMARY KEY (id_sp_prof, id_sp_sec),
-    FOREIGN KEY (id_sp_prof) REFERENCES profesor(id),
-    FOREIGN KEY (id_sp_sec) REFERENCES seccion(id)
+    
+    CONSTRAINT PK_SECCIONES_PROFESORES PRIMARY KEY (id_sp_prof, id_sp_sec),
+    CONSTRAINT fk_sp_profesores FOREIGN KEY (id_sp_prof) REFERENCES PROFESORES(prf_id),
+    CONSTRAINT fk_sp_secciones FOREIGN KEY (id_sp_sec) REFERENCES SECCIONES(sec_id)
 );
 
 -- Tabla histórica de lapsos/clases
@@ -98,8 +114,8 @@ CREATE TABLE historico_lapso_clase (
     id_hlc_est INTEGER NOT NULL,
     id_hlc_prof INTEGER NOT NULL,
     UNIQUE (fecha_inicio, id_hlc_est, id_hlc_prof),
-    FOREIGN KEY (id_hlc_est) REFERENCES estudiante(id),
-    FOREIGN KEY (id_hlc_prof) REFERENCES profesor(id)
+    FOREIGN KEY (id_hlc_est) REFERENCES ESTUDIANTES(est_id),
+    FOREIGN KEY (id_hlc_prof) REFERENCES PROFESORES(id)
 );
 
 -- Tabla de encuestas
@@ -112,7 +128,7 @@ CREATE TABLE encuestas (
 );
 
 COMMENT ON COLUMN encuestas.titulo IS 'Ej: Evaluación Docente 2025-Q1';
-COMMENT ON COLUMN encuestas.tipo IS 'e = Estudiante y p = Profesor';
+COMMENT ON COLUMN encuestas.tipo IS 'e = ESTUDIANTES y p = PROFESORES';
 
 -- Tabla de categorías de preguntas
 CREATE TABLE categoria_pregunta (
@@ -169,16 +185,16 @@ CREATE TABLE envio_encuesta (
     id SERIAL PRIMARY KEY,
     id_env_enc_encuesta INTEGER NOT NULL,
     id_env_enc_evaluado INTEGER NOT NULL,
-    id_env_enc_materia INTEGER,
+    id_env_enc_mat INTEGER,
     id_env_enc_pe INTEGER NOT NULL,
     fecha_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_env_enc_encuesta) REFERENCES encuestas(id),
-    FOREIGN KEY (id_env_enc_evaluado) REFERENCES cuenta_usuario(id),
-    FOREIGN KEY (id_env_enc_materia) REFERENCES materia(id),
+    FOREIGN KEY (id_env_enc_evaluado) REFERENCES CUENTAS_USUARIO(id),
+    FOREIGN KEY (id_env_enc_mat) REFERENCES MATERIAS(mat_id),
     FOREIGN KEY (id_env_enc_pe) REFERENCES periodo_evaluacion(id)
 );
 
-COMMENT ON COLUMN envio_encuesta.id_env_enc_materia IS 'Contexto de la materia evaluada';
+COMMENT ON COLUMN envio_encuesta.id_env_enc_MATERIAS IS 'Contexto de la MATERIAS evaluada';
 
 -- Tabla de tokens para acceso a encuestas
 CREATE TABLE token_encuesta (
@@ -186,19 +202,19 @@ CREATE TABLE token_encuesta (
     token_valor VARCHAR(50) UNIQUE NOT NULL,
     id_encuesta_te INTEGER NOT NULL,
     id_evaluado_prf INTEGER NOT NULL,
-    id_materia_te INTEGER NOT NULL,
+    id_mat_te INTEGER NOT NULL,
     id_pe_te INTEGER NOT NULL,
     fue_usado BOOLEAN NOT NULL DEFAULT false,
     id_envio_resultante INTEGER,
     FOREIGN KEY (id_encuesta_te) REFERENCES encuestas(id),
-    FOREIGN KEY (id_evaluado_prf) REFERENCES cuenta_usuario(id),
-    FOREIGN KEY (id_materia_te) REFERENCES materia(id),
+    FOREIGN KEY (id_evaluado_prf) REFERENCES CUENTAS_USUARIO(id),
+    FOREIGN KEY (id_mat_te) REFERENCES MATERIAS(mat_id),
     FOREIGN KEY (id_pe_te) REFERENCES periodo_evaluacion(id),
     FOREIGN KEY (id_envio_resultante) REFERENCES envio_encuesta(id)
 );
 
 COMMENT ON COLUMN token_encuesta.token_valor IS 'La contraseña alfanumérica de un solo uso';
-COMMENT ON COLUMN token_encuesta.id_evaluado_prf IS 'El profesor que será evaluado';
+COMMENT ON COLUMN token_encuesta.id_evaluado_prf IS 'El PROFESORES que será evaluado';
 
 -- Tabla de respuestas a las encuestas
 CREATE TABLE respuesta (
@@ -221,7 +237,7 @@ CREATE TABLE respuesta (
 COMMENT ON CONSTRAINT respuesta_id_envio_resp_id_pregunta_resp_key ON respuesta IS 'Evita respuestas duplicadas para la misma pregunta en el mismo envío';
 
 -- Índices adicionales para mejorar el rendimiento
-CREATE INDEX idx_cuenta_usuario_role ON cuenta_usuario(role);
+CREATE INDEX idx_cuenta_usuario_role ON CUENTAS_USUARIO(role);
 CREATE INDEX idx_encuestas_tipo ON encuestas(tipo);
 CREATE INDEX idx_pregunta_encuesta ON pregunta(id_encuesta_preg);
 CREATE INDEX idx_pregunta_categoria ON pregunta(id_categoria_preg);
